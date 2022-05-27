@@ -1857,3 +1857,55 @@ func TestConfigurationPerRequestFail(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveEmptyRequests(t *testing.T) {
+	modbus := Modbus{
+		Name:              "Test",
+		Controller:        "tcp://localhost:1502",
+		ConfigurationType: "request",
+		Log:               testutil.Logger{},
+	}
+	modbus.Requests = []requestDefinition{
+		{SlaveID: 1,
+			ByteOrder:    "ABCD",
+			RegisterType: "holding",
+			Fields: []requestFieldDefinition{
+				{
+					Name:      "holding-0",
+					Address:   uint16(0),
+					InputType: "INT16",
+				},
+				{
+					Name:      "holding-1",
+					Address:   uint16(2),
+					InputType: "UINT16",
+					Omit:      true,
+				},
+				{
+					Name:      "holding-2",
+					Address:   uint16(4),
+					InputType: "INT16",
+				},
+			},
+		},
+	}
+	for address := uint16(1); address <= maxQuantityHoldingRegisters*2; address += uint16(2) {
+		modbus.Requests[0].Fields = append(modbus.Requests[0].Fields,
+			requestFieldDefinition{
+				Name:      "holding-x",
+				Address:   address,
+				InputType: "INT16",
+				Omit:      true,
+			})
+	}
+	modbus.Requests[0].Fields = append(modbus.Requests[0].Fields,
+		requestFieldDefinition{
+			Name:      "holding-last",
+			Address:   maxQuantityHoldingRegisters*2 + 1,
+			InputType: "INT16",
+		})
+	require.NoError(t, modbus.Init())
+	require.NotEmpty(t, modbus.requests)
+	require.Len(t, modbus.requests[1].holding, 2)
+
+}
